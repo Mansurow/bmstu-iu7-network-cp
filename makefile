@@ -2,7 +2,7 @@ EXTENSION := out
 
 CFLAGS := -Wall -pedantic -Wvla -Wfloat-conversion -Wfloat-equal -Iinc -g3 -Wextra
 
-OUT := out/server.o
+OUT := out/server.o out/http.o
 
 TEST := out/test.o out/threadpool.o
 
