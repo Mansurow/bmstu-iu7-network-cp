@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in listen_sockaddr;
     listen_sockaddr.sin_family = AF_INET;
     listen_sockaddr.sin_addr.s_addr = INADDR_ANY;
-    listen_sockaddr.sin_port = htons(8089);
+    listen_sockaddr.sin_port = htons(port);
     // strcpy(listen_sockaddr.sin_zero, SOCKET);
 
     if(bind(listenfd, (struct sockaddr *) &listen_sockaddr, sizeof(listen_sockaddr)) == -1)
@@ -126,13 +126,16 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-     threadpool_t *threadpool = threadpool_create(8);
+    long number_processors = sysconf(_SC_NPROCESSORS_ONLN); 
+    threadpool_t *threadpool = threadpool_create(number_processors);
     if (threadpool == NULL)
     {
-        fprintf(stderr, "Ошибка в threadpool_create");
+        fprintf(stderr, "Ошибка в threadpool_create\n");
         close(listenfd);
         exit(1);
     }
+    
+    fprintf(stderr, "Создано %ld потоков thread pool\n");
 
     fd_set default_fds, changing_fds;
     FD_ZERO(&default_fds);
@@ -156,7 +159,7 @@ int main(int argc, char *argv[]) {
     {
         changing_fds = default_fds;
 
-        int res = select(nfds, &changing_fds, NULL, NULL, NULL);
+        int res = pselect(nfds, &changing_fds, NULL, NULL, NULL, NULL);
         if (res == -1)
         {
             fprintf(stderr, "Не удалось отследить изменение сокета. Ошибка в pselect, errno=%s\n", strerror(errno));

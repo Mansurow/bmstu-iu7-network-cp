@@ -17,7 +17,7 @@
 #define SOCKET             "server.socket"
 #define DEFAULT_ROOT_DIR   "./static"
 #define PATH_BUFF_LEN      256
-#define DEFAULT_PORT       8089
+#define DEFAULT_PORT       8080
 #define LISTEN_BACKLOG     32
 #define MAX_CONNECTIONS    2000
 

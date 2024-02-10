@@ -1,6 +1,14 @@
 # ifndef __LOGGER_H
 # define __LOGGER_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <stdarg.h>
+#include <pthread.h>
+#include <time.h>
+
 #define DEFAULT_LOG_FILE "server.log"
 #define DEFAULT_LOG_DIR  "logs"
 #define DEFAULT_PATH     "./" DEFAULT_LOG_DIR "/" DEFAULT_LOG_FILE
@@ -19,16 +27,17 @@ typedef struct
     char *filename;
 
     logger_node_t *head;
-    logger_node_t *tale;
+    logger_node_t *tail;
 
-    pthread_t worker;
+    pthread_t thread;
     pthread_cond_t work_cond;
-    pthread_mutex_t work_mutex;
+    pthread_mutex_t mutex;
 } logger_t;
 
-logger_t *logger;
+extern logger_t *logger;
 
 void logger_create(const char *filename);
 int logger_destroy();
+void logger_log(const char *message);
 
 #endif

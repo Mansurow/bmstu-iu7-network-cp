@@ -142,14 +142,11 @@ int threadpool_task_add(threadpool_t *pool, thread_func_t func, void *args)
     thread_task_t *task = NULL;
     if (pool != NULL && (task = thread_task_create(func, args)))
     {
-        printf("test1\n");
-        // Критический участок
         pthread_mutex_lock(&(pool->mutex));
-        // ДВУСВЯЗАННЫЙ СПИСОК!
         if (pool->head != NULL)
         {
             pool->tail->next = task;
-            // task->prev = pool->tail;
+            task->prev = pool->tail;
         } 
         else
         {
@@ -161,11 +158,8 @@ int threadpool_task_add(threadpool_t *pool, thread_func_t func, void *args)
 
         pool->stats_info.total_tasks++;
 
-        pthread_mutex_unlock(&(pool->mutex));
+        pthread_mutex_unlock(&(pool->mutex));  
 
-        printf("task was added to queue\n");    
-
-        // разблокировка хотя бы одного сигнала
         pthread_cond_signal(&(pool->task_queue_empty));
     }
 

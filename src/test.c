@@ -1,4 +1,5 @@
 #include "thread_pool.h"
+#include "logger.h"
 
 void *thread_pool_execute(void *arg);
 
@@ -9,6 +10,8 @@ void *thread_fun(void *arg) {
 
 int main()
 {
+    logger_create("./test.log");
+
     threadpool_t *pool = threadpool_create(8);
     printf("threadpool: %p\n", (void *) pool);
 
@@ -17,10 +20,11 @@ int main()
     for (int i = 0; i < 21; i ++ ) {
         threadpool_task_add(pool, thread_fun, (void *) (arg + i));
     }
+    
+    logger_log("Hello World!");
 
     threadpool_destroy(pool);
-
-    
+    logger_destroy();
 
     return 0;
 }
