@@ -1,4 +1,5 @@
 #include "server.h"
+#include "thread_pool.h"
 #include "http.h"
 
 static int stop_flag = 0; 
@@ -125,12 +126,18 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    // создание thread_pool
+     threadpool_t *threadpool = threadpool_create(8);
+    if (threadpool == NULL)
+    {
+        fprintf(stderr, "Ошибка в threadpool_create");
+        close(listenfd);
+        exit(1);
+    }
 
     fd_set default_fds, changing_fds;
     FD_ZERO(&default_fds);
     FD_ZERO(&changing_fds);
-    FD_SET(listenfd, &changing_fds);
+    FD_SET(listenfd, &default_fds);
     int nfds = listenfd + 1;
 
     // настройка времени ожидания
@@ -147,7 +154,9 @@ int main(int argc, char *argv[]) {
 
     while(!stop_flag) 
     {
-        int res = pselect(nfds, &changing_fds, NULL, NULL, NULL, NULL);
+        changing_fds = default_fds;
+
+        int res = select(nfds, &changing_fds, NULL, NULL, NULL);
         if (res == -1)
         {
             fprintf(stderr, "Не удалось отследить изменение сокета. Ошибка в pselect, errno=%s\n", strerror(errno));
@@ -176,22 +185,25 @@ int main(int argc, char *argv[]) {
                         if (clientfd >= nfds)
                             nfds = clientfd + 1;
 
-                        http_handler(clientfd);
+                         
+                        // http_handler(clientfd);
                     }            
                 } 
                 else
                 {
                     FD_CLR(nfd, &default_fds);
+                    printf("Загрузка работы с сокетом %d в очередь\n", nfd);
+                    threadpool_task_add(threadpool, http_handler, (void *) nfd);   
                 }
             }
         }  
     }
 
-
-    // уничтожение потоков
+    threadpool_destroy(threadpool);
     close(listenfd);
-    // уничтожения логов
     printf("Сервер был завершен.\n");
+
+    // уничтожения логов
 
     return 0;
 }

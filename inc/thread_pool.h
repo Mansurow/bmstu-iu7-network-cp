@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <pthread.h>
 
+#define DEFAULT_QUEUE_LEN 5
+
 typedef void (*thread_func_t)(void *);
 
 typedef struct thread_task_t
@@ -28,11 +30,11 @@ typedef struct
     thread_task_t *head;
     thread_task_t *tail;
 
-    pthread_cond_t work_cond;
+    pthread_cond_t task_queue_empty;
     // pthread_cond_t task_queue_empty;
     // pthread_cond_t task_queue_not_empty;
     // pthread_cond_t task_queue_not_full;
-    pthread_mutex_t work_mutex;
+    pthread_mutex_t mutex;
     pthread_t *threads;   
 
     uint32_t numtasks;    // количество задач на выполнение == длине списка задач

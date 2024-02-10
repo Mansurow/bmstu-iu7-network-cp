@@ -22,23 +22,15 @@ threadpool_t *threadpool_create(uint32_t numthreads)
             free(pool);
             pool = NULL;
         }
-        else if (pthread_cond_init(&(pool->work_cond), NULL) != 0)
+        else if (pthread_cond_init(&(pool->task_queue_empty), NULL) != 0)
         {
             free(pool->threads);
             free(pool);
             pool = NULL;
         }
-        // else if (pthread_cond_init(&(pool->task_queue_empty), NULL) != 0)
-        // {
-        //     pthread_cond_destroy(&(pool->work_cond));
-        //     free(pool->threads);
-        //     free(pool);
-        //     pool = NULL;
-        // }
-        else if (pthread_mutex_init(&(pool->work_mutex), NULL) != 0)
+        else if (pthread_mutex_init(&(pool->mutex), NULL) != 0)
         {
-            //pthread_cond_destroy(&(pool->task_queue_empty));
-            pthread_cond_destroy(&(pool->work_cond));
+            pthread_cond_destroy(&(pool->task_queue_empty));
             free(pool->threads);
             free(pool);
             pool = NULL;
@@ -69,26 +61,21 @@ int threadpool_destroy(threadpool_t *pool)
     int res = 0;
     if (pool != NULL)
     {
-        // while (pool->head != NULL) 
-        // {
-        //     pthread_cond_wait(&(pool->task_queue_empty), &(pool->mutex));
-        // }
-
-        pthread_mutex_lock(&(pool->work_mutex));
+        pthread_mutex_lock(&(pool->mutex));
         pool->destroying = 1;
-        pthread_mutex_unlock(&(pool->work_mutex));
+        pthread_mutex_unlock(&(pool->mutex));
 
-        pthread_cond_broadcast(&(pool->work_cond));
+        pthread_cond_broadcast(&(pool->task_queue_empty));
         for (uint32_t i = 0; i < pool->numthreads; i++)
         {
             pthread_join(pool->threads[i], NULL);
         }
 
-        res |= pthread_mutex_destroy(&(pool->work_mutex));
-        res |= pthread_cond_destroy(&(pool->work_cond));
+        res |= pthread_mutex_destroy(&(pool->mutex));
+        res |= pthread_cond_destroy(&(pool->task_queue_empty));
 
         printf("Всего пришло задач в очерель: %ld\n", pool->stats_info.total_tasks);
-        printf("Всего обраблотано задач: %d\n", pool->stats_info.total_handled_task);
+        printf("Всего обработано задач: %d\n", pool->stats_info.total_handled_task);
 
         if (!res)
         {
@@ -108,24 +95,24 @@ void *thread_execute(void *args)
         
         while (!pool->destroying)
         {
-            pthread_mutex_lock(&(pool->work_mutex));
-            if(!pool->destroying && !(pool->head))
+            pthread_mutex_lock(&(pool->mutex));
+            if(!pool->destroying && !(pool->head)) // task queue is empty or destroy all threads
             {
-                pthread_cond_wait(&(pool->work_cond), &(pool->work_mutex));
+                pthread_cond_wait(&(pool->task_queue_empty), &(pool->mutex));
             }
 
             thread_task_t *task = threadpool_get_task(pool);
             
             while (task != NULL)
             {
-                pthread_mutex_unlock(&(pool->work_mutex));
+                pthread_mutex_unlock(&(pool->mutex));
                 task->func(task->args);
                 thread_task_destroy(task);
                 task = NULL;
-                pthread_mutex_lock(&(pool->work_mutex));
+                pthread_mutex_lock(&(pool->mutex));
                 task = threadpool_get_task(pool);
             }
-            pthread_mutex_unlock(&(pool->work_mutex));
+            pthread_mutex_unlock(&(pool->mutex));
         }
     }
 
@@ -155,8 +142,9 @@ int threadpool_task_add(threadpool_t *pool, thread_func_t func, void *args)
     thread_task_t *task = NULL;
     if (pool != NULL && (task = thread_task_create(func, args)))
     {
+        printf("test1\n");
         // Критический участок
-        pthread_mutex_lock(&(pool->work_mutex));
+        pthread_mutex_lock(&(pool->mutex));
         // ДВУСВЯЗАННЫЙ СПИСОК!
         if (pool->head != NULL)
         {
@@ -173,10 +161,12 @@ int threadpool_task_add(threadpool_t *pool, thread_func_t func, void *args)
 
         pool->stats_info.total_tasks++;
 
-        pthread_mutex_unlock(&(pool->work_mutex));
+        pthread_mutex_unlock(&(pool->mutex));
+
+        printf("task was added to queue\n");    
 
         // разблокировка хотя бы одного сигнала
-        pthread_cond_signal(&(pool->work_cond));
+        pthread_cond_signal(&(pool->task_queue_empty));
     }
 
     return task != NULL;
@@ -190,7 +180,7 @@ thread_task_t *thread_task_create(thread_func_t func, void *args)
         task->func = func;
         task->args = args;
         task->next = NULL;
-        // task->prev = NULL;
+        task->prev = NULL;
     }
     return task;
 }
