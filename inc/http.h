@@ -78,6 +78,7 @@ typedef enum http_reponse {
     NOT_IMPLEMENTED = 501,
 } http_reponse_t;
 
+// кидать 501 если не 1.1
 typedef enum http_version {
     http1   = 1,
     http1_1 = 11,
