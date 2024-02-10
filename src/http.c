@@ -213,7 +213,8 @@ char *get_content_type_header(file_type_t ft)
 			sprintf(response_header, "%simage/svg+xml\r\n\r\n", HTTP_200);
 			break;
 		default:
-			sprintf(response_header, "%sapplication/octet-stream\r\n\r\n", HTTP_200);
+			//sprintf(response_header, "%sapplication/octet-stream\r\n\r\n", HTTP_200);
+            sprintf(response_header, "%stext/html; charset=utf-8\r\n\r\n", HTTP_200);
 			break;
 	}
 

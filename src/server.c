@@ -1,6 +1,7 @@
 #include "server.h"
 #include "thread_pool.h"
 #include "http.h"
+#include "logger.h"
 
 static int stop_flag = 0; 
 
@@ -9,9 +10,12 @@ void http_handler(int socket)
     http_header_t header;
 
     char request_data[MAX_GET_REQUEST + 1] = {0};
+    char log_buff[LOG_BUF_LEN * 2 + 1] = { 0 };
+
     long bytes = read(socket, request_data, MAX_GET_REQUEST);
-    // char log_buffer[MAX_GET_REQUEST * 2 + 1] = {0};
-    printf("На сокет %d пришёл запрос\n", socket);
+    
+    sprintf(log_buff, "На сокет %d пришёл запрос", socket);
+    logger_log(DEBUG, log_buff);   
 
     header = parse_header(request_data);
 
@@ -59,30 +63,35 @@ void http_handler(int socket)
     if (header.path != NULL)
         free(header.path);
 
-    printf("Соединение закрыто\n");    
+    sprintf(log_buff, "На сокет %d закрыто соединение", socket);
+    logger_log(DEBUG, log_buff);   
 }
 
 void sigint_handler() 
 {
-    printf("Было нажато Ctrl+C, сервер завершается...\n");
+    printf("\nБыло нажато Ctrl+C, сервер завершается...\n");
     stop_flag = 1;
 }
 
-// подумать на входными параметрами (количество потоков, соединений...)
-int main(int argc, char *argv[]) {
-
+int main(int argc, char *argv[]) 
+{
     int port = DEFAULT_PORT;
     char *dir = DEFAULT_ROOT_DIR;
 
-    // создание логов
+    char log_buff[LOG_BUF_LEN * 2 + 1] = { 0 };
+
+    logger_create(DEFAULT_LOG_FILE);
 
     if (chdir(DEFAULT_ROOT_DIR) == 0) 
     {
-        printf("Успешно назначена новая корневая директория: %s\n", DEFAULT_ROOT_DIR);
+        sprintf(log_buff, "Успешно назначена новая корневая директория: %s", DEFAULT_ROOT_DIR);
+        logger_log(INFO, log_buff);
     } 
     else 
     {
-        fprintf(stderr, "Корневая директория не назначена. Ошибка в chdir, errno=%s\n", strerror(errno));
+        sprintf(log_buff, "Корневая директория не назначена. Ошибка в chdir, errno=%s", strerror(errno));
+        logger_log(ERROR, log_buff);
+        logger_destroy();
         exit(1);
     }
 
@@ -104,7 +113,9 @@ int main(int argc, char *argv[]) {
     int listenfd = socket(AF_INET, SOCK_STREAM, 0);
     if (listenfd == -1)
     {
-        fprintf(stderr, "Не удалось создать сокет. Ошибка в socket, errno=%s\n", strerror(errno));
+        sprintf(log_buff, "Не удалось создать сокет. Ошибка в socket, errno=%s", strerror(errno));
+        logger_log(ERROR, log_buff);
+        logger_destroy();   
         exit(1);
     }
 
@@ -112,30 +123,39 @@ int main(int argc, char *argv[]) {
     listen_sockaddr.sin_family = AF_INET;
     listen_sockaddr.sin_addr.s_addr = INADDR_ANY;
     listen_sockaddr.sin_port = htons(port);
-    // strcpy(listen_sockaddr.sin_zero, SOCKET);
 
     if(bind(listenfd, (struct sockaddr *) &listen_sockaddr, sizeof(listen_sockaddr)) == -1)
     {
-        fprintf(stderr, "Не удалось назначить адрес сокету. Ошибка в bind, errno=%s\n", strerror(errno));
+        sprintf(log_buff, "Не удалось назначить адрес сокету. Ошибка в bind, errno=%s", strerror(errno));
+        logger_log(ERROR, log_buff);
+        logger_destroy();     
         exit(1);
     }
 
     if (listen(listenfd, LISTEN_BACKLOG) == -1) 
     {
-        fprintf(stderr, "Не удалось начать слушать сокет для установления соединения. Ошибка в listen, errno=%s\n", strerror(errno));
+        sprintf(log_buff, "Не удалось начать слушать сокет для установления соединения. Ошибка в listen, errno=%s", strerror(errno));
+        logger_log(ERROR, log_buff);
+        logger_destroy();
         exit(1);
     }
 
-    long number_processors = sysconf(_SC_NPROCESSORS_ONLN); 
+    logger_log(DEBUG, "Сокет для прослушивания создан и ему назначен адрес");
+
+    long number_processors = sysconf(_SC_NPROCESSORS_ONLN) - 1; 
     threadpool_t *threadpool = threadpool_create(number_processors);
     if (threadpool == NULL)
     {
-        fprintf(stderr, "Ошибка в threadpool_create\n");
+        logger_log(ERROR, "Ошибка в threadpool_create");
         close(listenfd);
+        logger_destroy();
         exit(1);
     }
     
-    fprintf(stderr, "Создано %ld потоков thread pool\n");
+    sprintf(log_buff, "Создано %u потоков thread pool", number_processors);
+    logger_log(DEBUG, log_buff);
+
+    printf("Нажмите Ctrl+C, чтобы закрыть сервер");
 
     fd_set default_fds, changing_fds;
     FD_ZERO(&default_fds);
@@ -153,8 +173,6 @@ int main(int argc, char *argv[]) {
     // sigset_t sigmask;
     // sigemptyset(&sigmask);
 
-    printf("Нажмите Ctrl+C, чтобы закрыть сервер\n");
-
     while(!stop_flag) 
     {
         changing_fds = default_fds;
@@ -162,7 +180,8 @@ int main(int argc, char *argv[]) {
         int res = pselect(nfds, &changing_fds, NULL, NULL, NULL, NULL);
         if (res == -1)
         {
-            fprintf(stderr, "Не удалось отследить изменение сокета. Ошибка в pselect, errno=%s\n", strerror(errno));
+            sprintf(log_buff, "Не удалось отследить изменение сокета. Ошибка в pselect, errno=%s", strerror(errno));
+            logger_log(ERROR, log_buff);
             continue;
         }
 
@@ -177,25 +196,29 @@ int main(int argc, char *argv[]) {
                     int clientfd = -1;
                     if ((clientfd = accept(listenfd, NULL, NULL)) == -1)
                     {
-                        close(listenfd);
-                        fprintf(stderr, "Соединение с клиентом не установлено. Ошибка в accept, errno=%s\n", strerror(errno));
+                        sprintf(log_buff, "Соединение с клиентом не установлено. Ошибка в accept, errno=%s", strerror(errno));
+                        logger_log(ERROR, log_buff);
+                        // close(listenfd);
                     }
                     else 
                     {
-                        printf("Соединились с клиентом по сокету %d\n", clientfd);
+                        sprintf(log_buff, "Соединились с клиентом по сокету %d", clientfd);
+                        logger_log(DEBUG, log_buff);
 
                         FD_SET(clientfd, &default_fds);
                         if (clientfd >= nfds)
                             nfds = clientfd + 1;
 
-                         
                         // http_handler(clientfd);
                     }            
                 } 
                 else
                 {
                     FD_CLR(nfd, &default_fds);
-                    printf("Загрузка работы с сокетом %d в очередь\n", nfd);
+
+                    sprintf(log_buff, "Загрузка работы с сокетом %d в очередь", nfd);
+                    logger_log(DEBUG, log_buff);
+
                     threadpool_task_add(threadpool, http_handler, (void *) nfd);   
                 }
             }
@@ -204,9 +227,12 @@ int main(int argc, char *argv[]) {
 
     threadpool_destroy(threadpool);
     close(listenfd);
-    printf("Сервер был завершен.\n");
 
-    // уничтожения логов
+    logger_log(DEBUG, "Сокет для прослушивания закрыт");
+    logger_log(DEBUG, "Потоки thread pool уничтожены");
+    logger_log(INFO, "Сервер был завершен");
+
+    logger_destroy();
 
     return 0;
 }

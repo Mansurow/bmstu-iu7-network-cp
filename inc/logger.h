@@ -11,11 +11,25 @@
 
 #define DEFAULT_LOG_FILE "server.log"
 #define DEFAULT_LOG_DIR  "logs"
-#define DEFAULT_PATH     "./" DEFAULT_LOG_DIR "/" DEFAULT_LOG_FILE
+#define DEFAULT_LOG_PATH "./" DEFAULT_LOG_DIR "/" DEFAULT_LOG_FILE
+
+#define LOG_BUF_LEN 1024
+
+typedef enum log_type_t
+{
+    INFO     = 0,
+    DEBUG    = 1,
+    WARNING  = 2,
+    ERROR    = 3,
+    CRITICAL = 4,
+    FATAL    = 5,
+    TRACE    = 6
+} log_type_t;
 
 typedef struct logger_node_t
 {
     char *message;
+    log_type_t type;
     struct logger_node_t *next;
 } logger_node_t;
 
@@ -38,6 +52,6 @@ extern logger_t *logger;
 
 void logger_create(const char *filename);
 int logger_destroy();
-void logger_log(const char *message);
+void logger_log(log_type_t type, const char *msg);
 
 #endif

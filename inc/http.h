@@ -38,11 +38,17 @@
 	"Content-Type: text/html; charset=utf-8\r\n"\
 	"Connection: Closed\r\n\r\n" 
 
+#define HTTP_501 "HTTP/1.1 501 Not Implemented\r\n"\
+	"Server: Static Server\r\n"\
+	"Content-Type: text/html; charset=utf-8\r\n"\
+	"Connection: Closed\r\n\r\n"
+
 #define HTTP_200_LEN strlen(HTTP_200)
 #define HTTP_403_LEN strlen(HTTP_403)
 #define HTTP_404_LEN strlen(HTTP_404)
 #define HTTP_405_LEN strlen(HTTP_405)
-#define HTTP_500_LEN strlen(HTTP_500)    
+#define HTTP_500_LEN strlen(HTTP_500)
+#define HTTP_501_LEN strlen(HTTP_501)    
 
 typedef enum file_type
 {
@@ -75,6 +81,7 @@ typedef enum http_reponse {
 	NOT_FOUND  = 404,
     CONFLICT   = 409,
     METHOD_NOT_ALLOWED = 405,
+	INTERNAL_SERVER_ERROR = 500,
     NOT_IMPLEMENTED = 501,
 } http_reponse_t;
 

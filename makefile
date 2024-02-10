@@ -2,9 +2,9 @@ EXTENSION := out
 
 CFLAGS := -Wall -pedantic -Wvla -Wfloat-conversion -Wfloat-equal -Iinc -g3 -Wextra
 
-OUT := out/server.o out/http.o out/thread_pool.o
+OUT := out/server.o out/http.o out/thread_pool.o out/logger.o
 
-TEST := out/test.o out/thread_pool.o
+TEST := out/test.o out/thread_pool.o out/logger.o
 
 ifeq ($(strip $(wildcard out/*.$(EXTENSION)) $(wildcard out/*.o)),)
 	CLEAN := @echo Nothing to be cleaned

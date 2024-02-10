@@ -2,7 +2,7 @@
 
 logger_t *logger = NULL;
 
-logger_node_t *node_create(const char *message);
+logger_node_t *node_create(const char *message, log_type_t type);
 logger_node_t *logger_get_node(void);
 void node_destroy(logger_node_t *node);
 void fprintf_log(FILE *file, logger_node_t *node);
@@ -109,7 +109,7 @@ int logger_destroy()
     return result;
 }
 
-logger_node_t *node_create(const char *message)
+logger_node_t *node_create(const char *message, log_type_t type)
 {
     logger_node_t *node = (logger_node_t *) calloc(1, sizeof(logger_node_t));
     
@@ -126,6 +126,7 @@ logger_node_t *node_create(const char *message)
         {
             node->next = NULL;
             node->message = tmp;
+            node->type = type;
             memcpy(node->message, message, len);
         }
     }
@@ -166,21 +167,33 @@ void fprintf_log(FILE *file, logger_node_t *node)
     struct tm tm = *localtime(&t);
 
     fprintf(file, "<%d-%02d-%02d %02d:%02d:%02d> ", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+    if (node->type == INFO)
+        fprintf(file, "[INFO] ");
+    else if (node->type == DEBUG) 
+        fprintf(file, "[DEBUG] ");
+    else if (node->type == WARNING) 
+        fprintf(file, "[WARN] ");
+    else if (node->type == ERROR) 
+        fprintf(file, "[ERR] ");
+    else if (node->type == CRITICAL) 
+        fprintf(file, "[CRI] "); 
+    else if (node->type == FATAL) 
+        fprintf(file, "[FATAl] ");
+    else if (node->type == TRACE) 
+        fprintf(file, "[TRACE] ");                    
+
     fprintf(file, "%s\n", node->message);
 }
 
-void logger_log(const char *msg)
+void logger_log(log_type_t type, const char *msg)
 {
-    printf("Message: %s\n", msg);
-
     if (logger != NULL)
     {
-        logger_node_t *node = node_create(msg);
+        logger_node_t *node = node_create(msg, type);
 
         if (node != NULL)
         {
-            printf("Message: %s\n", node->message);
-
             pthread_mutex_lock(&(logger->mutex));
 
             if (logger->head != NULL)

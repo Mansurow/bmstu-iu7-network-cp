@@ -21,6 +21,4 @@
 #define LISTEN_BACKLOG     32
 #define MAX_CONNECTIONS    2000
 
-
-
 # endif
